@@ -1,0 +1,13 @@
+Package: BayesPGLS
+Type: Package
+Title: Bayesian PGLS
+Version: 1.0.1
+Date: 2022-03-31
+Author: Fernando Colchero
+Maintainer: Fernando Colchero <colchero@imada.sdu.dk>
+Depends: R (>= 2.10)
+Imports: snowfall, caper, phytools, mvtnorm
+Description: 
+License: GPL
+LazyLoad: yes
+LazyData: yes

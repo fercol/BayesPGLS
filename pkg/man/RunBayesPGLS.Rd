@@ -3,44 +3,57 @@
 \alias{RunBayesPGLS.default}
 
 \title{
- FILL UP
+ Bayesian PGLS function.
 }
 
 \description{
- FILL UP
+ This function runs Bayesian PGLS regressions.
 }
 
-\usage{\method{RunBayesPGLS}{default} (formula, data, phylo = NULL, estLambda = TRUE, niter = 30000,  burnin = 10001, thinning = 10, nsim, ncpus, exclSps = NULL)}
+\usage{\method{RunBayesPGLS}{default} (formula, data, phylo = NULL, varsForPhylo = NULL, estLambda = TRUE, niter = 30000,  burnin = 10001, thinning = 10, nsim, ncpus, exclSps = NULL)}
 
 \arguments{
-	\item{ formula }{FILL UP}
+	\item{formula }{An object of class \code{\link{formula}}. A symbolic description of the model to be fitted. See \dQuote{\code{details}}.}
 
-	\item{data }{FILL UP}
+	\item{data }{Either a data frame with the dependent variable and predictors, or an object of class \dQuote{\code{BayesPGLSdata}}. See \dQuote{\code{details}}.}
 
-	\item{phylo }{FILL UP}
+	\item{phylo }{Optional, phylogenetic tree as imported by package \code{\link{phytools}}. If argument \code{data} is not of class \dQuote{\code{BayesPGLSdata}}, then the phylogenetic tree needs to be provided.}
 
-	\item{estLambda }{FILL UP}
+  \item{varsForPhylo }{Variables that should be used to match to the phylogeny.}
 
-	\item{niter }{FILL UP}
+	\item{estLambda }{Logical indicating if Pagel's \code{lambda} should be estimated.}
 
-	\item{ burnin }{FILL UP}
+	\item{niter }{The total number of MCMC steps. Default is 30,000 iterations.}
 
-	\item{thinning }{FILL UP}
+	\item{ burnin }{The number of iterations for the burn in. Default is 10,000 iterations (see \dQuote{\code{details}})}
 
-	\item{nsim }{FILL UP}
+	\item{thinning }{The number of skipped MCMC steps to minimize serial autocorrelation. Default is 10.}
 
-	\item{ncpus }{FILL UP}
+	\item{nsim }{A numerical value for the number of simulations to be run (necessary to calculate convergence statistics). Default is 4.}
 
-	\item{exclSps }{FILL UP}
+	\item{ncpus }{A numerical value for the number of CPUS available to run parallel simulations. Default is 4.}
+
+	\item{exclSps }{Character vector indicating which species, if any, should be excluded from the analysis. Default is \code{NA}.}
 
 }
 
 \details{
-FILL UP 
+The function runs Bayesian phylogenetic generalized least squares, combining direct sampling for the regression parameters and the residual variance, and Metropolis-Hastings for Pagel's \eqn{\lambda}. 
 }
 
 \value{
-	\item{fill up }{FILL UP}
+  \item{coefficients }{A matrix with estimated coefficients (i.e. mean values per parameter on the thinned sequences after burnin), which includes standard errors, upper and lower 95\% credible intervals, the \dQuote{\code{zeroCoverage}} which provides a lower or upper values of the value of the posterior distribution function for 0, and the potential scale reduction factor for convergence (see \code{Convergence} value below). }
+  \item{DIC }{Basic deviance information criterion (DIC) calculations to be used for model selection (Spiegelhalter \emph{et al.} 2002, Celeux \emph{et al.} 2006). Small differences between values should only be used as a reference (see comments in Spiegelhalter \emph{et al.} 2002). If all or some of the simulations failed, then the returned value is \dQuote{\code{Not calculated}}.}
+	\item{pars }{Matrix with the converged and thinned sequences of parameter estimates. Used for plotting.}
+	\item{likepost }{Matrix with converged and thinned likelihood and posterior values. Used for calculating DIC.}
+	\item{runs }{Raw outputs from each of the \code{nsim} runs.}
+	\item{fitted }{Fitted values for diagnostics.}
+	\item{settings }{MCMC settings used for simulations (e.g., niter, burnin, etc.).}
+	\item{form }{Character string reproducing the formula used for analysis.}
+	\item{estLambda }{Logical indicating whether Pagel's lambda was estimated.}
+	\item{corPred }{Matrix of correlations between predictors. Should be used as reference to avoid collinearity between predictors.}
+	\item{potInflObs }{Matrix indicating which observations could have large leverages or could be potential outliers.}
+	\item{data }{Object of class \dQuote{\code{BayesPGLSdata}} used for the analysis.}
 }
 
 \author{Fernando Colchero \email{colchero@imada.sdu.dk}}

@@ -5,11 +5,11 @@
 \docType{package}
 
 \title{
- FILL UP
+ Bayesian phylogenetic generalized least squares (PGLS).
 }
 
 \description{
- FILL UP
+ Provides functions to run Bayesian PGLS regressions including diagnostics.
 }
 
 \details{
@@ -20,9 +20,7 @@
 	Date: \tab 2022-04-01\cr
 	License: \tab GNU General Public Licence\cr
 	LazyLoad: \tab yes\cr
-}
-
-FILL UP DETAILS 
+  }
 }
 
 \author{Fernando Colchero \email{colchero@imada.sdu.dk}}

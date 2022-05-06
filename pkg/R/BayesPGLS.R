@@ -10,6 +10,7 @@
 # Main function:
 RunBayesPGLS <- function(formula, ...) UseMethod("RunBayesPGLS")
 RunBayesPGLS.default <- function(formula, data, phylo = NULL, 
+                                 varsForPhylo = NULL,
                                  estLambda = TRUE, niter = 30000,
                                  burnin = 10001, thinning = 10, nsim, 
                                  ncpus, exclSps = NULL) {
@@ -20,8 +21,8 @@ RunBayesPGLS.default <- function(formula, data, phylo = NULL,
     if (is.null(phylo)) {
       stop("Phylogeny missing.")
     } else {
-      fullDat <- PrepRegrData(data = data, phylo = phylo, formula = formula, 
-                              exclSps = exclSps)
+      fullData <- PrepRegrData(data = data, phylo = phylo, formula = formula, 
+                              exclSps = exclSps, varsForPhylo = varsForPhylo)
     }
   }
   
@@ -86,7 +87,7 @@ RunBayesPGLS.default <- function(formula, data, phylo = NULL,
   sfInit(parallel = TRUE, cpus = ncpus)
   
   # Upload paramDemo:
-  suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
+  # suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
   
   # libraries:
   # sfLibrary(mvtnorm)
@@ -368,12 +369,10 @@ print.BayesPGLS <- function(x) {
   inflAn <- list()
   
   # Run full regression to identify influential obs.:
-  regrDat <- PrepRegrData(responseData = responseData, 
-                          predictorData = predictorData, 
-                          predictors = predictors, phyloAll = phyloAll)
+  regrDat <- PrepRegrData(data = testDat, phylo = phyloAll, formula = formula)
   
   inflAn$All <- RunBayesPGLS(formula = formula, 
-                             data = regrDat$data, Sigma = regrDat$Sigma, 
+                             data = regrDat, 
                              niter = niter, burnin = burnin, 
                              thinning = thinning, nsim = nsim, ncpus = ncpus)
   
@@ -383,13 +382,14 @@ print.BayesPGLS <- function(x) {
     infSps <- gsub("_", " ", rownames(sumInfl))
     ninfsp <- length(infSps)
     for (sp in infSps) {
-      regrDat <- PrepRegrData(responseData = responseData, predictorData = predictorData, 
-                              predictors = predictors, exclSps = sp, 
-                              phyloAll = phyloAll)
+      regrDat <- PrepRegrData(data = testDat, phylo = phyloAll, 
+                              formula = formula)
       
       inflAn[[sp]] <- RunBayesPGLS(formula = formula, 
-                                   data = regrDat$data, Sigma = regrDat$Sigma, 
-                                   nsim = 4, ncpus = 4)
+                                   data = regrDat, 
+                                   niter = niter, burnin = burnin, 
+                                   thinning = thinning, nsim = nsim, 
+                                   ncpus = ncpus)
     }
     
     # Parameter names:
@@ -458,7 +458,24 @@ print.potInflObs <- function(x) {
 # ================================================ #
 # ==== FUNCTION TO PREPARE DATA FOR ANALYSIS: ====
 # ================================================ #
-PrepRegrData <- function(data, phylo, formula = NULL, exclSps = NULL) {
+PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL, 
+                         varForPhylo = NULL, exclSps = NULL, 
+                         treeType = "Newick", ...) {
+  
+  # Check if a phylogeny or a directory for the phylogeny is provided:
+  if (all(is.null(c(phylo, phyloDir)))) {
+    stop("Phylogeny missing. Either provide a phylogeny through 'phylo',\n",
+    "or a directory to a phylogenetic tree through 'phyloDir'.")
+  } else {
+    if (is.null(phylo)) {
+      if (treeType == "Newick") {
+        phylo <- phytools::read.newick(phyloDir)
+      } else if (treeType == 'Nexus') {
+        phylo <- phytools::readNexus(phyloDir, ...)
+      }
+    }
+  }
+  
   # Original data:
   orData <- data
   
@@ -549,8 +566,14 @@ PrepRegrData <- function(data, phylo, formula = NULL, exclSps = NULL) {
   ndat <- data.frame(species = physp, data[, -spCol])
   colnames(ndat) <- c("species", colnames(data)[-spCol])
   
+  # Variables to match to the phylogeny:
+  if (is.null(varForPhylo)) {
+    phdat <- ndat
+  } else {
+    phdat <- ndat[, varForPhylo]
+  }
   # Extract Sigma matrix:
-  pglsdat <- caper::comparative.data(phy = phySub, data = ndat, vcv = T, 
+  pglsdat <- caper::comparative.data(phy = phySub, data = phdat, vcv = T, 
                                      names.col = species)
   Sigma <- pglsdat$vcv
   

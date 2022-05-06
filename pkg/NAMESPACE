@@ -1,7 +1,7 @@
 #Exports:
 export("plot.BayesPGLS", "PrepRegrData", "print.BayesPGLS", "print.potInflObs", "RunBayesPGLS", "RunBayesPGLS.default", "summary.BayesPGLS", "summary.potInflObs")
 
-Imports:
+#Imports:
 import(snowfall)
 import(mvtnorm)
 import(caper)

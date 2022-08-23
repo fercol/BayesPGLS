@@ -10,7 +10,6 @@
 # Main function:
 RunBayesPGLS <- function(formula, ...) UseMethod("RunBayesPGLS")
 RunBayesPGLS.default <- function(formula, data, phylo = NULL, 
-                                 varsForPhylo = NULL,
                                  estLambda = TRUE, niter = 30000,
                                  burnin = 10001, thinning = 10, nsim, 
                                  ncpus, exclSps = NULL) {
@@ -21,8 +20,8 @@ RunBayesPGLS.default <- function(formula, data, phylo = NULL,
     if (is.null(phylo)) {
       stop("Phylogeny missing.")
     } else {
-      fullData <- PrepRegrData(data = data, phylo = phylo, formula = formula, 
-                              exclSps = exclSps, varsForPhylo = varsForPhylo)
+      fullDat <- PrepRegrData(data = data, phylo = phylo, formula = formula, 
+                              exclSps = exclSps)
     }
   }
   
@@ -44,8 +43,18 @@ RunBayesPGLS.default <- function(formula, data, phylo = NULL,
   # Extract response:
   n <- nrow(data)
   chForm <- as.character(formula)
-  y <- data[, chForm[2]]
-  
+  depv <- chForm[2]
+  if (grepl("[[:alpha:]]+\\([[:graph:]]+\\)", depv)) {
+    basedepv <- gsub("\\)", "", gsub("[[:alpha:]]+\\(", "", depv))
+    ytemp <- data[, basedepv]
+    depvexp <- gsub(basedepv, "ytemp", depv)
+    y <- eval(str2lang(depvexp))
+    needTransf <- TRUE
+  } else {
+    y <- data[, depv]
+    needTransf <- FALSE
+  }
+
   # Create design matrix:
   X <- model.matrix(as.formula(paste("~", chForm[3])), data = data)
   p <- ncol(X)
@@ -459,8 +468,7 @@ print.potInflObs <- function(x) {
 # ==== FUNCTION TO PREPARE DATA FOR ANALYSIS: ====
 # ================================================ #
 PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL, 
-                         varForPhylo = NULL, exclSps = NULL, 
-                         treeType = "Newick", ...) {
+                         exclSps = NULL, treeType = "Newick", ...) {
   
   # Check if a phylogeny or a directory for the phylogeny is provided:
   if (all(is.null(c(phylo, phyloDir)))) {
@@ -468,9 +476,9 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     "or a directory to a phylogenetic tree through 'phyloDir'.")
   } else {
     if (is.null(phylo)) {
-      if (treeType == "Newick") {
+      if (treeType = "Newick") {
         phylo <- phytools::read.newick(phyloDir)
-      } else if (treeType == 'Nexus') {
+      } else if (treeType = 'Nexus') {
         phylo <- phytools::readNexus(phyloDir, ...)
       }
     }
@@ -566,14 +574,8 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   ndat <- data.frame(species = physp, data[, -spCol])
   colnames(ndat) <- c("species", colnames(data)[-spCol])
   
-  # Variables to match to the phylogeny:
-  if (is.null(varForPhylo)) {
-    phdat <- ndat
-  } else {
-    phdat <- ndat[, varForPhylo]
-  }
   # Extract Sigma matrix:
-  pglsdat <- caper::comparative.data(phy = phySub, data = phdat, vcv = T, 
+  pglsdat <- caper::comparative.data(phy = phySub, data = ndat, vcv = T, 
                                      names.col = species)
   Sigma <- pglsdat$vcv
   

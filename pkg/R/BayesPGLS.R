@@ -476,9 +476,9 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     "or a directory to a phylogenetic tree through 'phyloDir'.")
   } else {
     if (is.null(phylo)) {
-      if (treeType = "Newick") {
+      if (treeType == "Newick") {
         phylo <- phytools::read.newick(phyloDir)
-      } else if (treeType = 'Nexus') {
+      } else if (treeType == 'Nexus') {
         phylo <- phytools::readNexus(phyloDir, ...)
       }
     }

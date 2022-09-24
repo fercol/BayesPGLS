@@ -9,7 +9,7 @@
 # ======================================= #
 # Main function:
 RunBayesPGLS <- function(formula, ...) UseMethod("RunBayesPGLS")
-RunBayesPGLS.default <- function(formula, data, phylo = NULL, 
+RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL, 
                                  estLambda = TRUE, niter = 30000,
                                  burnin = 10001, thinning = 10, nsim, 
                                  ncpus, exclSps = NULL) {
@@ -20,8 +20,8 @@ RunBayesPGLS.default <- function(formula, data, phylo = NULL,
     if (is.null(phylo)) {
       stop("Phylogeny missing.")
     } else {
-      fullDat <- PrepRegrData(data = data, phylo = phylo, formula = formula, 
-                              exclSps = exclSps)
+      fullData <- PrepRegrData(data = data, phylo = phylo, formula = formula, 
+                              weights = weights, exclSps = exclSps)
     }
   }
   
@@ -468,7 +468,8 @@ print.potInflObs <- function(x) {
 # ==== FUNCTION TO PREPARE DATA FOR ANALYSIS: ====
 # ================================================ #
 PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL, 
-                         exclSps = NULL, treeType = "Newick", ...) {
+                         weights = NULL, exclSps = NULL, 
+                         treeType = "Newick", ...) {
   
   # Check if a phylogeny or a directory for the phylogeny is provided:
   if (all(is.null(c(phylo, phyloDir)))) {
@@ -507,6 +508,10 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   if (!is.null(formula)) {
     chForm <- as.character(formula)
     response <- chForm[2]
+    if (grepl("[[:alpha:]]+\\([[:graph:]]+\\)", response)) {
+      response <- gsub("\\)", "", gsub("[[:alpha:]]+\\(", "", response))
+    }
+    
     predictors <- strsplit(chForm[3], 
                            split = "[[:space:]]{1}[[:punct:]]{1}[[:space:]]{1}")[[1]]
     # Find interactions:
@@ -514,19 +519,36 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     if (length(idint) > 0) {
       predictors <- unlist(strsplit(predictors, ":"))
     }
+    
     # Find if formula includes transformations:
-    idtr <- sort(unique(c(grep("log[[:punct:]]{1}", predictors),  
-                          grep("sqrt[[:punct:]]{1}", predictors))))
+    idtr <- sort(unique(grep("[[:alpha:]]+\\([[:graph:]]+\\)", predictors)))
     if (length(idtr) > 0) {
-      predictors[idtr] <- gsub("log[[:punct:]]{1}", "", predictors[idtr])
-      predictors[idtr] <- gsub("sqrt[[:punct:]]{1}", "", predictors[idtr])
-      predictors[idtr] <- gsub("[[:punct:]]$", "", predictors[idtr])
+      predictors[idtr] <- gsub("\\)", "", gsub("[[:alpha:]]+\\(", "", 
+                                               predictors[idtr]))
     }
+    # idtr <- sort(unique(c(grep("log[[:punct:]]{1}", predictors),
+    #                       grep("sqrt[[:punct:]]{1}", predictors))))
+    # if (length(idtr) > 0) {
+    #   predictors[idtr] <- gsub("log[[:punct:]]{1}", "", predictors[idtr])
+    #   predictors[idtr] <- gsub("sqrt[[:punct:]]{1}", "", predictors[idtr])
+    #   predictors[idtr] <- gsub("[[:punct:]]$", "", predictors[idtr])
+    # }
     
     if (!all(c(response, predictors) %in% colnames(data))) {
-      stop("Response and predictors in formula should match column names in 'data'.")
+      stop("Response and predictors in formula 
+           should match column names in 'data'.")
     } else {
-      data <- data[, c("species", response, predictors)]
+      if (!is.null(weights)) {
+        if (!weights %in% colnames(data)) {
+          stop("Argument 'weights' should correspond to 
+               one of the columns in 'data'.")
+        } else {
+          data <- data[, c("species", response, predictors, weights)]
+        }
+      } else {
+        Weighted <- FALSE
+        data <- data[, c("species", response, predictors)]
+      }
     }
   }
   
@@ -582,11 +604,18 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   # Extract Sigma matrix:
   Sigma <- Sigma[1:nrow(Sigma), 1:ncol(Sigma)]
   Sigma <- Sigma / Sigma[1]
-  nrow(Sigma)
+  
+  # Weights:
+  if (!is.null(weights)) {
+    wv <- 1 / data[, weights]
+    Wmat <- sqrt(wv) %*% t(sqrt(wv))
+    Sigma <- Sigma / Wmat
+    Weighted <- TRUE
+  }
   
   # Return list:
   retlist <- list(data = ndat, Sigma = Sigma, excluded = exclSps, 
-                  naSps = naSps, missPhySps = missPhySps)
+                  naSps = naSps, missPhySps = missPhySps, Weighted = Weighted)
   class(retlist) <- "BayesPGLSdata"
   return(retlist)
 }
@@ -652,7 +681,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   muNow <- c(X %*% betaNow)
   sigNow <- 0.05
   SigNow <- Sigma * lambdaNow
-  diagSig <- rep(1, n)
+  diagSig <- diag(Sigma)
   diag(SigNow) <- diagSig
   SigInvNow <- solve(SigNow)
   detSigNow <- det(SigNow)
@@ -665,7 +694,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   s1 <- 0.01
   s2 <- 0.01
   
-  # Calculate initial likelyhood, prior and posterior:
+  # Calculate initial likelihood, prior and posterior:
   likeNow <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNow, 
                        detSig = detSigNow)
   postNow <- likeNow + .dtnorm(x = lambdaNow, mean = lamPriorM, sd = lamPriorSD, 

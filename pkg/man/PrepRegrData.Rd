@@ -10,7 +10,7 @@
 }
 
 \usage{PrepRegrData (data, phylo = NULL, phyloDir = NULL, formula = NULL, 
-                         varsForPhylo = NULL, exclSps = NULL, 
+                         weights = NULL, varsForPhylo = NULL, exclSps = NULL, 
                          treeType = "Newick", ...)}
 
 \arguments{
@@ -22,6 +22,8 @@
 
 	\item{formula }{An object of class \code{\link{formula}}. A symbolic description of the model to be fitted. See \dQuote{\code{details}}.}
 
+  \item{weights }{Character string indicating the column in \dQuote{\code{data}} that includes the weights for the regression. Default is \code{NULL} when no weights should be included.}
+  
   \item{varsForPhylo }{Variables that should be used to match to the phylogeny.}
   
 	\item{exclSps }{Character vector of species to be excluded from the analysis.}

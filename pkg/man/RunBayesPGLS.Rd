@@ -10,13 +10,15 @@
  This function runs Bayesian PGLS regressions.
 }
 
-\usage{\method{RunBayesPGLS}{default} (formula, data, phylo = NULL, varsForPhylo = NULL, estLambda = TRUE, niter = 30000,  burnin = 10001, thinning = 10, nsim, ncpus, exclSps = NULL)}
+\usage{\method{RunBayesPGLS}{default} (formula, data, weights = NULL, phylo = NULL, varsForPhylo = NULL, estLambda = TRUE, niter = 30000,  burnin = 10001, thinning = 10, nsim, ncpus, exclSps = NULL)}
 
 \arguments{
 	\item{formula }{An object of class \code{\link{formula}}. A symbolic description of the model to be fitted. See \dQuote{\code{details}}.}
 
 	\item{data }{Either a data frame with the dependent variable and predictors, or an object of class \dQuote{\code{BayesPGLSdata}}. See \dQuote{\code{details}}.}
 
+  \item{weights }{Character string indicating the column in \dQuote{\code{data}} that includes the weights for the regression. Default is \code{NULL} when no weights should be included.}
+  
 	\item{phylo }{Optional, phylogenetic tree as imported by package \code{\link{phytools}}. If argument \code{data} is not of class \dQuote{\code{BayesPGLSdata}}, then the phylogenetic tree needs to be provided.}
 
   \item{varsForPhylo }{Variables that should be used to match to the phylogeny.}

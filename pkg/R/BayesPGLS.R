@@ -96,11 +96,11 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   sfInit(parallel = TRUE, cpus = ncpus)
   
   # Upload paramDemo:
-  # suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
+  suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
   
   # libraries:
-  # sfLibrary(mvtnorm)
-  sfLibrary(BayesPGLS)
+  sfLibrary(mvtnorm)
+  # sfLibrary(BayesPGLS)
   
   # Run parallel function:
   outparal <- sfClusterApplyLB(1:ncpus, .RunMCMC, y = y, X = X, 
@@ -220,7 +220,7 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   
   # DIC:
   likehat <- .multiNorm(x = y, mean = muhat, invSig = 1 / sighat * SigInvHat, 
-                       detSig = detSigHat)
+                       logDetSig = detSigHat)
   
   likeMean <- mean(lpmat[, "Likelihood"])
   pDIC <- 2 * (likehat - likeMean)
@@ -603,7 +603,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   
   # Extract Sigma matrix:
   Sigma <- Sigma[1:nrow(Sigma), 1:ncol(Sigma)]
-  Sigma <- Sigma / Sigma[1]
+  # Sigma <- Sigma / Sigma[1]
   
   # Weights:
   if (!is.null(weights)) {
@@ -624,8 +624,8 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
 # ==== MCMC FUNCTIONS: =====
 # ========================== #
 # Multivariate normal density:
-.multiNorm <- function(x, mean, invSig, detSig) {
-  dens <- log(sqrt(detSig)) + 
+.multiNorm <- function(x, mean, invSig, logDetSig) {
+  dens <- 1/2 * logDetSig + 
     c(- 1 / 2 * t(x - mean) %*% invSig %*% (x - mean))
   return(dens)
 }
@@ -684,19 +684,20 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   diagSig <- diag(Sigma)
   diag(SigNow) <- diagSig
   SigInvNow <- solve(SigNow)
-  detSigNow <- det(SigNow)
+  detSigNow <- determinant(SigNow)
+  logDetSigNow <- detSigNow$modulus
   
   # Priors:
   betaPriorM <- rep(0, p)
   betaPriorV <- rep(100, p)
   lamPriorM <- 0.5
   lamPriorSD <- 0.5
-  s1 <- 0.01
-  s2 <- 0.01
+  s1 <- 1
+  s2 <- 1
   
   # Calculate initial likelihood, prior and posterior:
   likeNow <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNow, 
-                       detSig = detSigNow)
+                       logDetSig = logDetSigNow)
   postNow <- likeNow + .dtnorm(x = lambdaNow, mean = lamPriorM, sd = lamPriorSD, 
                               lower = 0, upper = 1, log = TRUE)
   
@@ -745,8 +746,11 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     sigNow <- 1 / rgamma(1, u1, u2)
     
     # update likelihood and posterior:
-    likeNow <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNow, 
-                         detSig = detSigNow)
+    likeNow <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNow,
+                          logDetSig = logDetSigNow)
+    # likeNow <- .multiNorm(x = y, mean = muNow, invSig = SigInvNow, 
+    #                       logDetSig = logDetSigNow)
+    
     postNow <- likeNow + .dtnorm(x = lambdaNow, mean = lamPriorM, 
                                 sd = lamPriorSD, lower = 0, upper = 1, 
                                 log = TRUE)
@@ -760,10 +764,13 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
       SigNew <- Sigma * lambdaNew
       diag(SigNew) <- diagSig
       SigInvNew <- solve(SigNew)
-      detSigNew <- det(SigNew)
+      detSigNew <- determinant(SigNew)
+      logDetSigNew <- detSigNew$modulus
       
-      likeNew <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNew, 
-                           detSig = detSigNew)
+      likeNew <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNew,
+                            logDetSig = logDetSigNew)
+      # likeNew <- .multiNorm(x = y, mean = muNow, invSig = SigInvNew, 
+      #                       logDetSig = logDetSigNew)
       postNew <- likeNew + .dtnorm(x = lambdaNew, mean = lamPriorM, 
                                   sd = lamPriorSD, lower = 0, upper = 1, 
                                   log = TRUE)
@@ -778,7 +785,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
         lambdaNow <- lambdaNew
         SigNow <- SigNew
         SigInvNow <- SigInvNew
-        detSigNow <- detSigNew
+        logDetSigNow <- logDetSigNew
         likeNow <- likeNew
         postNow <- postNew
         if (updateJumps & iter <= niter) {

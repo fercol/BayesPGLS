@@ -166,7 +166,7 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   allpvals[idpvals] <- pvals
   coefs <- data.frame(coefs, zeroCoverage = allpvals, 
                       Rhat = PSRF[, "Rhat"])
-  
+  print(coefs)
   # =================================== #
   # ==== EXTRACT PPOINT ESTIMATES: ====
   # =================================== #
@@ -181,9 +181,10 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   SigHat <- Sigma * lambdahat
   diagSig <- rep(1, nrow(Sigma))
   diag(SigHat) <- diagSig
-  detSigHat <- det(SigHat)
+  detSigHat <- determinant(SigHat)
   SigInvHat <- solve(SigHat)
-  betahat <- solve(t(X) %*% SigInvHat %*% X) %*% t(X) %*% SigInvHat %*% y
+  logDetSiHat <- detSigHat$modulus
+  # betahat <- solve(t(X) %*% SigInvHat %*% X) %*% t(X) %*% SigInvHat %*% y
   muhat <- X %*% betahat
   reshat <- y - muhat
   Vhat <- Dfun(SigHat)
@@ -219,9 +220,9 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   }
   
   # DIC:
-  likehat <- .multiNorm(x = y, mean = muhat, invSig = 1 / sighat * SigInvHat, 
-                       logDetSig = detSigHat)
-  
+  likehat <- .multiNorm(x = y, mean = muhat, invSig = SigInvHat / sighat, 
+                       logDetSig = logDetSiHat - n/2 * log(sighat))
+
   likeMean <- mean(lpmat[, "Likelihood"])
   pDIC <- 2 * (likehat - likeMean)
   DIC <- c(likeHat = likehat, likeMean = likeMean, 
@@ -625,7 +626,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
 # ========================== #
 # Multivariate normal density:
 .multiNorm <- function(x, mean, invSig, logDetSig) {
-  dens <- 1/2 * logDetSig + 
+  dens <- - 1/2 * logDetSig + 
     c(- 1 / 2 * t(x - mean) %*% invSig %*% (x - mean))
   return(dens)
 }
@@ -680,6 +681,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   names(betaNow) <- colnames(X)
   muNow <- c(X %*% betaNow)
   sigNow <- 0.05
+  lambdaNow <- 0.5
   SigNow <- Sigma * lambdaNow
   diagSig <- diag(Sigma)
   diag(SigNow) <- diagSig
@@ -689,15 +691,16 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   
   # Priors:
   betaPriorM <- rep(0, p)
-  betaPriorV <- rep(100, p)
+  betaPriorV <- diag(rep(100, p))
+  betaPriorVinv <- diag(1/diag(betaPriorV))
   lamPriorM <- 0.5
   lamPriorSD <- 0.5
   s1 <- 1
   s2 <- 1
   
   # Calculate initial likelihood, prior and posterior:
-  likeNow <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNow, 
-                       logDetSig = logDetSigNow)
+  likeNow <- .multiNorm(x = y, mean = muNow, invSig = SigInvNow / sigNow,
+                        logDetSig = logDetSigNow - n/2 * log(sigNow))
   postNow <- likeNow + .dtnorm(x = lambdaNow, mean = lamPriorM, sd = lamPriorSD, 
                               lower = 0, upper = 1, log = TRUE)
   
@@ -711,7 +714,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   
   # Jump update for lambda:
   if (updateJumps) {
-    jumpLam <- 0.01
+    jumpLam <- 0.1
     updTarg <- 0.25
     updIters <- 50
     updInd <- rep(0, updIters)
@@ -732,8 +735,8 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     # 1. SAMPLING BETA:
     # ================== #
     # 1.a. Sample beta's (Direct sampling through conjugate distrs.):
-    v <- (t(X) %*% SigInvNow %*% y) / sigNow + betaPriorM / betaPriorV
-    V <- solve((t(X) %*% SigInvNow %*% X) / sigNow + 1 / betaPriorV)
+    v <- (t(X) %*% SigInvNow %*% y) / sigNow + betaPriorVinv %*% betaPriorM
+    V <- solve((t(X) %*% SigInvNow %*% X) / sigNow + betaPriorVinv)
     betaNow <- t(mvtnorm::rmvnorm(1, V %*% v, V))
     muNow <- c(X %*% betaNow)
     
@@ -744,13 +747,10 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     u1 <- s1 + n / 2
     u2 <- s2 + .5 * (t(muNow - y) %*% SigInvNow %*% (muNow - y))
     sigNow <- 1 / rgamma(1, u1, u2)
-    
+
     # update likelihood and posterior:
-    likeNow <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNow,
-                          logDetSig = logDetSigNow)
-    # likeNow <- .multiNorm(x = y, mean = muNow, invSig = SigInvNow, 
-    #                       logDetSig = logDetSigNow)
-    
+    likeNow <- .multiNorm(x = y, mean = muNow, invSig = SigInvNow / sigNow,
+                          logDetSig = logDetSigNow - n/2 * log(sigNow))
     postNow <- likeNow + .dtnorm(x = lambdaNow, mean = lamPriorM, 
                                 sd = lamPriorSD, lower = 0, upper = 1, 
                                 log = TRUE)
@@ -766,33 +766,35 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
       SigInvNew <- solve(SigNew)
       detSigNew <- determinant(SigNew)
       logDetSigNew <- detSigNew$modulus
-      
-      likeNew <- .multiNorm(x = y, mean = muNow, invSig = 1 / sigNow * SigInvNew,
-                            logDetSig = logDetSigNew)
-      # likeNew <- .multiNorm(x = y, mean = muNow, invSig = SigInvNew, 
-      #                       logDetSig = logDetSigNew)
+
+      likeNew <- .multiNorm(x = y, mean = muNow,
+                            invSig = SigInvNew / sigNow,
+                            logDetSig = logDetSigNew - n/2 * log(sigNow))
       postNew <- likeNew + .dtnorm(x = lambdaNew, mean = lamPriorM, 
                                   sd = lamPriorSD, lower = 0, upper = 1, 
                                   log = TRUE)
-      
       HastRatio <- .dtnorm(x = lambdaNow, mean = lambdaNew, sd = jumpLam, 
                           lower = 0, upper = 1, log = TRUE) -
         .dtnorm(x = lambdaNew, mean = lambdaNow, sd = jumpLam, lower = 0, 
                upper = 1, log = TRUE)
       r <- exp(postNew - postNow + HastRatio)
       z <- runif(1)
-      if(r > z) {
-        lambdaNow <- lambdaNew
-        SigNow <- SigNew
-        SigInvNow <- SigInvNew
-        logDetSigNow <- logDetSigNew
-        likeNow <- likeNew
-        postNow <- postNew
-        if (updateJumps & iter <= niter) {
-          updInd[ucnt] <- 1
-          # updInd[iter] <- 1
-        }
-      }      
+      if (!is.na(r)) {
+        if(r > z) {
+          
+          lambdaNow <- lambdaNew
+          SigNow <- SigNew
+          SigInvNow <- SigInvNew
+          logDetSigNow <- logDetSigNew
+          likeNow <- likeNew
+          postNow <- postNew
+          if (updateJumps & iter <= niter) {
+            updInd[ucnt] <- 1
+            # updInd[iter] <- 1
+          }
+        }      
+        
+      }
     }
     
     # ======================== #

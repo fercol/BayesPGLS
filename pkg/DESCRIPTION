@@ -1,10 +1,10 @@
 Package: BayesPGLS
 Type: Package
 Title: Bayesian PGLS
-Version: 1.0.1
-Date: 2022-03-31
+Version: 1.0.2
+Date: 2024-01-24
 Author: Fernando Colchero
-Maintainer: Fernando Colchero <colchero@imada.sdu.dk>
+Maintainer: Fernando Colchero <fernando_colchero@eva.mpg.de>
 Depends: R (>= 2.10), snowfall
 Imports: caper, phytools, mvtnorm
 Description: Runs Bayesian phylogenetic generalised least squares.

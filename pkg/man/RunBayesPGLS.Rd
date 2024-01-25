@@ -58,7 +58,7 @@ The function runs Bayesian phylogenetic generalized least squares, combining dir
 	\item{data }{Object of class \dQuote{\code{BayesPGLSdata}} used for the analysis.}
 }
 
-\author{Fernando Colchero \email{colchero@imada.sdu.dk}}
+\author{Fernando Colchero \email{fernando_colchero@eva.mpg.de}}
 
 \seealso{FILL UP}
 

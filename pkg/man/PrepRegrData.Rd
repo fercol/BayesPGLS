@@ -6,12 +6,12 @@
 }
 
 \description{
- The function prepares the analysis data and extract the variance-covariance matrix from the phylogeny and matches the variables based on the species names.
+ This function prepares the analysis data and prepares the variance-covariance matrix from the phylogeny.
 }
 
-\usage{PrepRegrData (data, phylo = NULL, phyloDir = NULL, formula = NULL, 
-                         weights = NULL, varsForPhylo = NULL, exclSps = NULL, 
-                         treeType = "Newick", ...)}
+\usage{PrepRegrData(data, phylo = NULL, phyloDir = NULL, formula = NULL, 
+             weights = NULL, varsForPhylo = NULL, 
+             exclSps = NULL, treeType = "Newick", ...)}
 
 \arguments{
 	\item{ data }{Data frame containing the species names, the response variables, and the predictors.}
@@ -43,12 +43,22 @@ Argument \dQuote{\code{phylo}} requires a phologenetic tree as imported by funct
 }
 
 \value{
-	\item{fill up }{FILL UP}
+	\item{data }{Data frame with the final data used for the analysis}
+	
+	\item{Sigma }{Variance covariance matrix derived from the phylogenetic tree}
+	
+	\item{excluded }{Character vector with the excluded species names}
+	
+	\item{naSps }{Species with \code{NA} on response, predictors, and weights}
+	
+	\item{missPhySps }{Character vector with species not found in the phylogentic tree}
+	
+	\item{Weighted }{Logical indicating whether weights were included}
 }
 
-\author{Fernando Colchero \email{colchero@imada.sdu.dk}}
+\author{Fernando Colchero \email{fernando_colchero@eva.mpg.de}}
 
-\seealso{FILL UP}
+\seealso{\code{\link{RunBayesPGLS}} to run Bayesian PGLS.}
 
 \examples{FILL UP}
 

@@ -7,10 +7,14 @@
 }
 
 \description{
- This function runs Bayesian PGLS regressions.
+ This function runs Bayesian Phylogenetic Generalized Least Squares (PGLS).
 }
 
-\usage{\method{RunBayesPGLS}{default} (formula, data, weights = NULL, phylo = NULL, varsForPhylo = NULL, estLambda = TRUE, niter = 30000,  burnin = 10001, thinning = 10, nsim, ncpus, exclSps = NULL)}
+\usage{\method{RunBayesPGLS}{default} (formula, data, weights = NULL, 
+              phylo = NULL, varsForPhylo = NULL, 
+              estLambda = TRUE, niter = 30000,  
+              burnin = 10001, thinning = 10, nsim, 
+              ncpus, exclSps = NULL)}
 
 \arguments{
 	\item{formula }{An object of class \code{\link{formula}}. A symbolic description of the model to be fitted. See \dQuote{\code{details}}.}
@@ -60,7 +64,7 @@ The function runs Bayesian phylogenetic generalized least squares, combining dir
 
 \author{Fernando Colchero \email{fernando_colchero@eva.mpg.de}}
 
-\seealso{FILL UP}
+\seealso{\code{\link{PrepRegrData}} to prepare the data for the Bayesian PGLS (built-in in function \code{RunBayesPGLS}).}
 
 \examples{FILL UP}
 

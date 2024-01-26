@@ -1,5 +1,6 @@
 \name{summary.BayesPGLS}
 \alias{summary.BayesPGLS}
+\alias{print.BayesPGLS}
 
 \title{
  FILL UP
@@ -26,7 +27,7 @@ FILL UP
 	\item{fill up }{FILL UP}
 }
 
-\author{Fernando Colchero \email{colchero@imada.sdu.dk}}
+\author{Fernando Colchero \email{fernando_colchero@eva.mpg.de}}
 
 \seealso{FILL UP}
 

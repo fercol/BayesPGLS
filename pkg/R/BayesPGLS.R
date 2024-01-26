@@ -95,12 +95,12 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   # require(snowfall)
   sfInit(parallel = TRUE, cpus = ncpus)
   
-  # Upload paramDemo:
-  suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
+  # Source package (for debugging):
+  # suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
   
   # libraries:
-  sfLibrary(mvtnorm)
-  # sfLibrary(BayesPGLS)
+  # sfLibrary(mvtnorm)
+  sfLibrary(BayesPGLS)
   
   # Run parallel function:
   outparal <- sfClusterApplyLB(1:ncpus, .RunMCMC, y = y, X = X, 
@@ -166,7 +166,7 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   allpvals[idpvals] <- pvals
   coefs <- data.frame(coefs, zeroCoverage = allpvals, 
                       Rhat = PSRF[, "Rhat"])
-  print(coefs)
+  
   # =================================== #
   # ==== EXTRACT PPOINT ESTIMATES: ====
   # =================================== #
@@ -179,10 +179,10 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
     lambdahat <- 0
   }
   SigHat <- Sigma * lambdahat
-  diagSig <- rep(1, nrow(Sigma))
+  diagSig <- diag(Sigma)
   diag(SigHat) <- diagSig
-  detSigHat <- determinant(SigHat)
   SigInvHat <- solve(SigHat)
+  detSigHat <- determinant(SigHat)
   logDetSiHat <- detSigHat$modulus
   # betahat <- solve(t(X) %*% SigInvHat %*% X) %*% t(X) %*% SigInvHat %*% y
   muhat <- X %*% betahat
@@ -202,7 +202,8 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   shat <- c((t(y - muhat) %*% SigInvHat %*% (y - muhat)) / (n - p))
   
   # standardized residuals:
-  rhat <- reshat / sqrt(shat * (1 - hhat))
+  # rhat <- reshat / sqrt(shat * (1 - hhat))
+  rhat <- phreshat / sqrt(shat * (1 - hhat))
   
   # Studentized residuals:
   ti <- rhat * sqrt((n - p - 1) / (n - p - rhat^2))
@@ -221,8 +222,8 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   
   # DIC:
   likehat <- .multiNorm(x = y, mean = muhat, invSig = SigInvHat / sighat, 
-                       logDetSig = logDetSiHat - n/2 * log(sighat))
-
+                        logDetSig = logDetSiHat - n/2 * log(sighat))
+  
   likeMean <- mean(lpmat[, "Likelihood"])
   pDIC <- 2 * (likehat - likeMean)
   DIC <- c(likeHat = likehat, likeMean = likeMean, 
@@ -682,6 +683,8 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   muNow <- c(X %*% betaNow)
   sigNow <- 0.05
   lambdaNow <- 0.5
+  
+  # Variance covariance matrix:
   SigNow <- Sigma * lambdaNow
   diagSig <- diag(Sigma)
   diag(SigNow) <- diagSig
@@ -696,7 +699,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   lamPriorM <- 0.5
   lamPriorSD <- 0.5
   s1 <- 1
-  s2 <- 1
+  s2 <- 0.1
   
   # Calculate initial likelihood, prior and posterior:
   likeNow <- .multiNorm(x = y, mean = muNow, invSig = SigInvNow / sigNow,
@@ -790,7 +793,6 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
           postNow <- postNew
           if (updateJumps & iter <= niter) {
             updInd[ucnt] <- 1
-            # updInd[iter] <- 1
           }
         }      
         

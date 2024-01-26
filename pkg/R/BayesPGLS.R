@@ -147,23 +147,29 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   } else {
     idpvals <- 1:p
   }
-  pvals <- sapply(idpvals, function(pp) {
-    pn <- pnorm(0, mean = coefs[pp, "Mean"], sd = coefs[pp, "SD"])
-    if (pn > 0.5) {
-      pn <- 2 * (1 - pn)
-    } else {
-      pn <- 2 * pn
-    }
-    if (pn < 0.0001) {
-      pn <- "< 0.001"
-    } else {
-      pn <- format(round(pn, 3), scientific = FALSE)
-    }
-    return(pn)
-  })
-  
-  allpvals <- rep(NA, nrow(coefs))
-  allpvals[idpvals] <- pvals
+  idpvals <- which(!parnames %in% c("Intercept", "sigma", "lambda"))
+  if (length(idpvals) > 0) {
+    pvals <- sapply(idpvals, function(pp) {
+      pn <- pnorm(0, mean = coefs[pp, "Mean"], sd = coefs[pp, "SD"])
+      if (pn > 0.5) {
+        pn <- 2 * (1 - pn)
+      } else {
+        pn <- 2 * pn
+      }
+      if (pn < 0.0001) {
+        pn <- "< 0.001"
+      } else {
+        pn <- format(round(pn, 3), scientific = FALSE)
+      }
+      return(pn)
+    })
+    
+    allpvals <- rep(NA, nrow(coefs))
+    allpvals[idpvals] <- pvals
+  } else {
+    allpvals <- rep(NA, nrow(coefs))
+  }
+
   coefs <- data.frame(coefs, zeroCoverage = allpvals, 
                       Rhat = PSRF[, "Rhat"])
   
@@ -506,58 +512,81 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     data <- data[idincl, ]
   }
   
-  # Covariates to be included:
-  if (!is.null(formula)) {
+  # Extract response and predictors from formula:
+  if (is.null(formula)) {
+    stop("Specify regression formula.")
+  } else {
+    # Extract character vector for response and predictors:
     chForm <- as.character(formula)
+    
+    # Extract response:
     response <- chForm[2]
+    
+    # Find whether transformation were used on response:
     if (grepl("[[:alpha:]]+\\([[:graph:]]+\\)", response)) {
       response <- gsub("\\)", "", gsub("[[:alpha:]]+\\(", "", response))
     }
     
+    # Extract predictors from formula:
     predictors <- strsplit(chForm[3], 
                            split = "[[:space:]]{1}[[:punct:]]{1}[[:space:]]{1}")[[1]]
-    # Find interactions:
-    idint <- grep("\\:", predictors)
-    if (length(idint) > 0) {
-      predictors <- unlist(strsplit(predictors, ":"))
-    }
     
-    # Find if formula includes transformations:
-    idtr <- sort(unique(grep("[[:alpha:]]+\\([[:graph:]]+\\)", predictors)))
-    if (length(idtr) > 0) {
-      predictors[idtr] <- gsub("\\)", "", gsub("[[:alpha:]]+\\(", "", 
-                                               predictors[idtr]))
-    }
-    # idtr <- sort(unique(c(grep("log[[:punct:]]{1}", predictors),
-    #                       grep("sqrt[[:punct:]]{1}", predictors))))
-    # if (length(idtr) > 0) {
-    #   predictors[idtr] <- gsub("log[[:punct:]]{1}", "", predictors[idtr])
-    #   predictors[idtr] <- gsub("sqrt[[:punct:]]{1}", "", predictors[idtr])
-    #   predictors[idtr] <- gsub("[[:punct:]]$", "", predictors[idtr])
-    # }
-    
-    if (!all(c(response, predictors) %in% colnames(data))) {
-      stop("Response and predictors in formula 
+    # Find if formula specifies any predictors:
+    if (predictors == "1") {
+      if (!response %in% colnames(data)) {
+        stop("Response in formula 
            should match column names in 'data'.")
-    } else {
-      if (!is.null(weights)) {
-        if (!weights %in% colnames(data)) {
-          stop("Argument 'weights' should correspond to 
-               one of the columns in 'data'.")
-        } else {
-          data <- data[, c("species", response, predictors, weights)]
-        }
       } else {
-        Weighted <- FALSE
-        data <- data[, c("species", response, predictors)]
+        inclCols <- c("species", response)
+      }
+    } else {
+      # Find interactions:
+      idint <- grep("\\:", predictors)
+      if (length(idint) > 0) {
+        predictors <- unlist(strsplit(predictors, ":"))
+      }
+      
+      # Find if formula includes transformations:
+      idtr <- sort(unique(grep("[[:alpha:]]+\\([[:graph:]]+\\)", predictors)))
+      if (length(idtr) > 0) {
+        predictors[idtr] <- gsub("\\)", "", gsub("[[:alpha:]]+\\(", "", 
+                                                 predictors[idtr]))
+      }
+      
+      # Find if response or predictors are not included in data:
+      if (!all(c(response, predictors) %in% colnames(data))) {
+        stop("Response and predictors in formula 
+           should match column names in 'data'.")
+      } else {
+        inclCols <- c("species", response, predictors)
       }
     }
+    
+    # Find if weights were specified:
+    if (!is.null(weights)) {
+      if (!weights %in% colnames(data)) {
+        stop("Argument 'weights' should correspond to 
+               one of the columns in 'data'.")
+      } else {
+        inclCols <- c(inclCols, weights)
+      }
+    } else {
+      Weighted <- FALSE
+    }
+    
+    # Fill up final data with response, predictor and weights:
+    data <- data[, inclCols]
+    
   }
   
   # Find if there are NAs in data:
-  naid <- sort(unique(unlist(apply(data[, -spCol], 2, function(xx) {
-    id <- which(is.na(xx))
-  }))))
+  if (predictors != "1") {
+    naid <- sort(unique(unlist(apply(data[, -spCol], 2, function(xx) {
+      id <- which(is.na(xx))
+    }))))
+  } else {
+    naid <- c()
+  }
   
   if (length(naid) > 0) {
     naSps <- data$species[naid]
@@ -694,8 +723,9 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   
   # Priors:
   betaPriorM <- rep(0, p)
-  betaPriorV <- diag(rep(100, p))
-  betaPriorVinv <- diag(1/diag(betaPriorV))
+  betaPriorV <- rep(100, p)
+  # betaPriorVinv <- diag(1/diag(betaPriorV))
+  betaPriorVinv <- 1/betaPriorV
   lamPriorM <- 0.5
   lamPriorSD <- 0.5
   s1 <- 1

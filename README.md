@@ -6,7 +6,7 @@ BayesPGLS is an R package to carry out Bayesian phylogenetic generalized least s
 
 The package includes functions to run PGLS and to visualize the results. It includes:  
 
-- Ability to run PGLS vs GLS and use model choice to test the importance of the phylogeny;
+- Options to run PGLS vs GLS and use model choice to test the influence of the phylogeny, particularly at low levels of Pagel's lambda;
 - Allows to include weights when using response variables that are calculated as summary statistics;
 - Plots for trace convergence, posterior density, and diagnostics;
 - Provides a list of potential outliers and influential observations;

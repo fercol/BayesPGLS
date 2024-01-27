@@ -12,7 +12,7 @@
 \usage{plot.BayesPGLS(x, plot.type = "traces")}
 
 \arguments{
-	\item{ x }{An object of class \dQuote{\code{BayesPGLS}}}
+	\item{x }{An object of class \dQuote{\code{BayesPGLS}}}
 
 	\item{plot.type }{Character string specifying the type of plot. Options are \dQuote{\code{traces}} (default), \dQuote{\code{density}}, or \dQuote{\code{diagnostics}}}
 

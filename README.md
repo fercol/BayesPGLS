@@ -1,6 +1,6 @@
 # BayesPGLS: Bayesian Phylogenetic Generalized Least Squares.
 
-BayesPGLS is an R package to carry out Bayesian PGLS that allows including weights.
+BayesPGLS is an R package to carry out Bayesian phylogenetic generalized least squares, testing the level of Pagel's lambda and allowing to include weights.
 
 ## What's in BayesPGLS?
 

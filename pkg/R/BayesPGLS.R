@@ -96,11 +96,11 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   sfInit(parallel = TRUE, cpus = ncpus)
   
   # Source package (for debugging):
-  # suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
+  suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
   
   # libraries:
-  # sfLibrary(mvtnorm)
-  sfLibrary(BayesPGLS)
+  sfLibrary(mvtnorm)
+  # sfLibrary(BayesPGLS)
   
   # Run parallel function:
   outparal <- sfClusterApplyLB(1:ncpus, .RunMCMC, y = y, X = X, 
@@ -532,7 +532,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
                            split = "[[:space:]]{1}[[:punct:]]{1}[[:space:]]{1}")[[1]]
     
     # Find if formula specifies any predictors:
-    if (predictors == "1") {
+    if (chForm[3] == "1") {
       if (!response %in% colnames(data)) {
         stop("Response in formula 
            should match column names in 'data'.")
@@ -580,7 +580,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   }
   
   # Find if there are NAs in data:
-  if (predictors != "1") {
+  if (chForm[3] != "1") {
     naid <- sort(unique(unlist(apply(data[, -spCol], 2, function(xx) {
       id <- which(is.na(xx))
     }))))
@@ -768,7 +768,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     # 1. SAMPLING BETA:
     # ================== #
     # 1.a. Sample beta's (Direct sampling through conjugate distrs.):
-    v <- (t(X) %*% SigInvNow %*% y) / sigNow + betaPriorVinv %*% betaPriorM
+    v <- (t(X) %*% SigInvNow %*% y) / sigNow + betaPriorVinv * betaPriorM
     V <- solve((t(X) %*% SigInvNow %*% X) / sigNow + betaPriorVinv)
     betaNow <- t(mvtnorm::rmvnorm(1, V %*% v, V))
     muNow <- c(X %*% betaNow)

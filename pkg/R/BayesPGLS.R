@@ -580,13 +580,9 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   }
   
   # Find if there are NAs in data:
-  if (chForm[3] != "1") {
-    naid <- sort(unique(unlist(apply(data[, -spCol], 2, function(xx) {
-      id <- which(is.na(xx))
-    }))))
-  } else {
-    naid <- c()
-  }
+  naid <- sort(unique(unlist(apply(data[, -spCol], 2, function(xx) {
+    id <- which(is.na(xx))
+  }))))
   
   if (length(naid) > 0) {
     naSps <- data$species[naid]

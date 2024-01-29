@@ -2,10 +2,10 @@
 export("plot.BayesPGLS", "PrepRegrData", "print.BayesPGLS", "print.potInflObs", "RunBayesPGLS", "RunBayesPGLS.default", "summary.BayesPGLS", "summary.potInflObs")
 
 #Imports:
-import(snowfall)
-import(mvtnorm)
-import(caper)
-import(phytools)
+import("snowfall")
+import("mvtnorm")
+import("caper")
+import("phytools")
 
 #S3 methods:
 S3method("plot", "BayesPGLS")

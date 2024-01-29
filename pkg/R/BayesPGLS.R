@@ -96,11 +96,11 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   sfInit(parallel = TRUE, cpus = ncpus)
   
   # Source package (for debugging):
-  suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
+  # suppressMessages(sfSource("pkg/R/BayesPGLS.R"))
   
   # libraries:
   sfLibrary(mvtnorm)
-  # sfLibrary(BayesPGLS)
+  sfLibrary(BayesPGLS)
   
   # Run parallel function:
   outparal <- sfClusterApplyLB(1:ncpus, .RunMCMC, y = y, X = X, 

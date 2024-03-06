@@ -31,7 +31,8 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   
   # Function to correct residuals for phylogeny:
   Dfun <- function(Cmat) {
-    iCmat <- solve(Cmat, tol = .Machine$double.eps)
+    # iCmat <- solve(Cmat, tol = .Machine$double.eps)
+    iCmat <- .InvMat(Cmat)
     svdCmat <- La.svd(iCmat)
     D <- svdCmat$u %*% diag(sqrt(svdCmat$d)) %*% t(svdCmat$v)
     return(t(D))
@@ -187,7 +188,8 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   SigHat <- Sigma * lambdahat
   diagSig <- diag(Sigma)
   diag(SigHat) <- diagSig
-  SigInvHat <- solve(SigHat)
+  # SigInvHat <- solve(SigHat)
+  SigInvHat <- .InvMat(SigHat)
   detSigHat <- determinant(SigHat)
   logDetSiHat <- detSigHat$modulus
   # betahat <- solve(t(X) %*% SigInvHat %*% X) %*% t(X) %*% SigInvHat %*% y
@@ -201,7 +203,7 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   # ==== INFLUENTIAL OBSERVATIONS: ====
   # =================================== #
   # leverages:
-  hhat <- diag(X %*% solve(t(X) %*% SigInvHat %*% X) %*% t(X) %*% SigInvHat)
+  hhat <- diag(X %*% .InvMat(t(X) %*% SigInvHat %*% X) %*% t(X) %*% SigInvHat)
   names(hhat) <- rownames(SigInvHat)
   
   # Estimated sigma:
@@ -228,7 +230,7 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   
   # DIC:
   likehat <- .multiNorm(x = y, mean = muhat, invSig = SigInvHat / sighat, 
-                        logDetSig = logDetSiHat - n/2 * log(sighat))
+                        logDetSig = logDetSiHat + n * log(sighat))
   
   likeMean <- mean(lpmat[, "Likelihood"])
   pDIC <- 2 * (likehat - likeMean)
@@ -580,9 +582,13 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   }
   
   # Find if there are NAs in data:
-  naid <- sort(unique(unlist(apply(data[, -spCol], 2, function(xx) {
-    id <- which(is.na(xx))
-  }))))
+  if (ncol(data) > 2) {
+    naid <- sort(unique(unlist(apply(data[, -spCol], 2, function(xx) {
+      id <- which(is.na(xx))
+    }))))
+  } else {
+    naid <- which(is.na(data[, -spCol]))
+  }
   
   if (length(naid) > 0) {
     naSps <- data$species[naid]
@@ -630,7 +636,8 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   
   # Extract Sigma matrix:
   Sigma <- Sigma[1:nrow(Sigma), 1:ncol(Sigma)]
-  # Sigma <- Sigma / Sigma[1]
+  SigScale <- Sigma[1, 1]
+  Sigma <- Sigma / SigScale
   
   # Weights:
   if (!is.null(weights)) {
@@ -713,7 +720,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   SigNow <- Sigma * lambdaNow
   diagSig <- diag(Sigma)
   diag(SigNow) <- diagSig
-  SigInvNow <- solve(SigNow)
+  SigInvNow <- .InvMat(SigNow)
   detSigNow <- determinant(SigNow)
   logDetSigNow <- detSigNow$modulus
   
@@ -721,7 +728,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   betaPriorM <- rep(0, p)
   betaPriorV <- rep(100, p)
   # betaPriorVinv <- diag(1/diag(betaPriorV))
-  betaPriorVinv <- 1/betaPriorV
+  betaPriorVinv <- 1 / betaPriorV
   lamPriorM <- 0.5
   lamPriorSD <- 0.5
   s1 <- 1
@@ -729,7 +736,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   
   # Calculate initial likelihood, prior and posterior:
   likeNow <- .multiNorm(x = y, mean = muNow, invSig = SigInvNow / sigNow,
-                        logDetSig = logDetSigNow - n/2 * log(sigNow))
+                        logDetSig = logDetSigNow + n * log(sigNow))
   postNow <- likeNow + .dtnorm(x = lambdaNow, mean = lamPriorM, sd = lamPriorSD, 
                               lower = 0, upper = 1, log = TRUE)
   
@@ -765,7 +772,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     # ================== #
     # 1.a. Sample beta's (Direct sampling through conjugate distrs.):
     v <- (t(X) %*% SigInvNow %*% y) / sigNow + betaPriorVinv * betaPriorM
-    V <- solve((t(X) %*% SigInvNow %*% X) / sigNow + betaPriorVinv)
+    V <- .InvMat((t(X) %*% SigInvNow %*% X) / sigNow + betaPriorVinv)
     betaNow <- t(mvtnorm::rmvnorm(1, V %*% v, V))
     muNow <- c(X %*% betaNow)
     
@@ -775,11 +782,12 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     # 2.a. Sample sigma (Direct sampling; inverse gamma):
     u1 <- s1 + n / 2
     u2 <- s2 + .5 * (t(muNow - y) %*% SigInvNow %*% (muNow - y))
+    # u2 <- s2 + .5 * c(t(muNow - y) %*% (muNow - y))
     sigNow <- 1 / rgamma(1, u1, u2)
 
     # update likelihood and posterior:
     likeNow <- .multiNorm(x = y, mean = muNow, invSig = SigInvNow / sigNow,
-                          logDetSig = logDetSigNow - n/2 * log(sigNow))
+                          logDetSig = logDetSigNow + n * log(sigNow))
     postNow <- likeNow + .dtnorm(x = lambdaNow, mean = lamPriorM, 
                                 sd = lamPriorSD, lower = 0, upper = 1, 
                                 log = TRUE)
@@ -792,13 +800,13 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
       lambdaNew <- .rtnorm(1, lambdaNow, jumpLam, lower = 0, upper = 1)
       SigNew <- Sigma * lambdaNew
       diag(SigNew) <- diagSig
-      SigInvNew <- solve(SigNew)
+      SigInvNew <- .InvMat(SigNew)
       detSigNew <- determinant(SigNew)
       logDetSigNew <- detSigNew$modulus
 
       likeNew <- .multiNorm(x = y, mean = muNow,
                             invSig = SigInvNew / sigNow,
-                            logDetSig = logDetSigNew - n/2 * log(sigNow))
+                            logDetSig = logDetSigNew + n * log(sigNow))
       postNew <- likeNew + .dtnorm(x = lambdaNew, mean = lamPriorM, 
                                   sd = lamPriorSD, lower = 0, upper = 1, 
                                   log = TRUE)
@@ -912,4 +920,10 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   return(outList)
 }
 
+# Matrix inversion using Cholescky decomposition:
+.InvMat <- function(mat) {
+  cmat <- chol(mat)
+  imat <- chol2inv(cmat)
+  return(imat)
+}
 # ================================= CODE END ================================= #

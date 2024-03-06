@@ -6,7 +6,7 @@
 }
 
 \description{
- Draws plots to inspect outputs from function \code{RunBayesPGLS}}
+ Draws plots to inspect outputs from function \code{RunBayesPGLS}
 }
 
 \usage{plot.BayesPGLS(x, plot.type = "traces")}

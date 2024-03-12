@@ -12,7 +12,8 @@
 
 \usage{\method{RunBayesPGLS}{default} (formula, data, weights = NULL, 
               phylo = NULL, varsForPhylo = NULL, 
-              estLambda = TRUE, niter = 30000,  
+              estLambda = TRUE, checkPosterior = FALSE, 
+              dLambda = 0.01, niter = 30000,  
               burnin = 10001, thinning = 10, nsim, 
               ncpus, exclSps = NULL)}
 
@@ -28,6 +29,10 @@
   \item{varsForPhylo }{Variables that should be used to match to the phylogeny.}
 
 	\item{estLambda }{Logical indicating if Pagel's \code{lambda} should be estimated.}
+	
+	\item{checkPosterior }{Logical indicating whether to carry out a preliminary check on the likelihood and posterior profiles as a function of Pagel's \code{lambda} (see details).}
+	
+	\item{dLambda }{Numerical value of the interval size for the vector of Pagel's \code{lambda} values used to check.}
 
 	\item{niter }{The total number of MCMC steps. Default is 30,000 iterations.}
 

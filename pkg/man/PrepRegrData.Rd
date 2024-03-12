@@ -10,7 +10,7 @@
 }
 
 \usage{PrepRegrData(data, phylo = NULL, phyloDir = NULL, formula = NULL, 
-             weights = NULL, varsForPhylo = NULL, 
+             estLambda = TRUE, weights = NULL, varsForPhylo = NULL, 
              exclSps = NULL, treeType = "Newick", ...)}
 
 \arguments{
@@ -21,6 +21,8 @@
 	\item{phyloDir }{Path to a phylogenetic tree}
 
 	\item{formula }{An object of class \code{\link{formula}}. A symbolic description of the model to be fitted. See \dQuote{\code{details}}.}
+	
+	\item{estLambda }{Logical indicating whether Pagel's \code{lambda} should be estimated.}
 
   \item{weights }{Character string indicating the column in \dQuote{\code{data}} that includes the weights for the regression. Default is \code{NULL} when no weights should be included.}
   

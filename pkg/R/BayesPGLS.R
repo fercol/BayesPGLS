@@ -10,9 +10,9 @@
 # Main function:
 RunBayesPGLS <- function(formula, ...) UseMethod("RunBayesPGLS")
 RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL, 
-                                 estLambda = TRUE, niter = 30000,
-                                 burnin = 10001, thinning = 10, nsim, 
-                                 ncpus, exclSps = NULL) {
+                                 estLambda = TRUE, checkPosterior = FALSE, 
+                                 dLambda = 0.01, niter = 30000, burnin = 10001, 
+                                 thinning = 10, nsim, ncpus, exclSps = NULL) {
   # Find if 'data' is of class 'BayesPGLSdata':
   if (class(data) == "BayesPGLSdata") {
     fullData <- data
@@ -21,7 +21,8 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
       stop("Phylogeny missing.")
     } else {
       fullData <- PrepRegrData(data = data, phylo = phylo, formula = formula, 
-                              weights = weights, exclSps = exclSps)
+                              estLambda = estLambda, weights = weights, 
+                              exclSps = exclSps)
     }
   }
   
@@ -81,6 +82,22 @@ RunBayesPGLS.default <- function(formula, data, weights = NULL, phylo = NULL,
   
   # Run sequence to find jumps for lambda:
   if (estLambda) {
+    if (checkPosterior) {
+      likePost <- .CheckPosterior(y = y, X = X, Sigma = Sigma, 
+                                  dlambda = dLambda)
+      op <- par(no.readonly = TRUE)
+      par(mfrow = c(2, 1), mar = c(4, 4, 1, 1))
+      plot(likePost[, "lambda"], likePost[, "Like"], type = 'l', xlab = "", 
+           ylab = "Likelihood", lwd = 2, col = 'dark red')
+      plot(likePost[, "lambda"], likePost[, "Post"], type = 'l', 
+           xlab = "lambda", ylab = "Posterior", lwd = 2, col = 'dark red')
+      par(op)
+      
+      # Warning if the maximum is when lambda = 0:
+      if (max(likePost[, "Post"]) == likePost[1, "Post"]) {
+        warning("Maximum posterior when lambda = 0. Consider running model with 'estLambda = FALSE'")
+      }
+    }
     cat("Running sequence to calculate lambda jump sd... ")
     outjumps <- .RunMCMC(sim = 1, y = y, X = X, Sigma = Sigma, n = n, p = p, 
                         niter = burnin, burnin = burnin, thinning = 1,
@@ -478,7 +495,7 @@ print.potInflObs <- function(x) {
 # ==== FUNCTION TO PREPARE DATA FOR ANALYSIS: ====
 # ================================================ #
 PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL, 
-                         weights = NULL, exclSps = NULL, 
+                         estLambda = TRUE, weights = NULL, exclSps = NULL, 
                          treeType = "Newick", ...) {
   
   # Check if a phylogeny or a directory for the phylogeny is provided:
@@ -638,12 +655,19 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   Sigma <- Sigma[1:nrow(Sigma), 1:ncol(Sigma)]
   SigScale <- Sigma[1, 1]
   Sigma <- Sigma / SigScale
+  if (!estLambda) {
+    Sigma <- diag(diag(Sigma))
+  } 
   
   # Weights:
   if (!is.null(weights)) {
     wv <- 1 / data[, weights]
-    Wmat <- sqrt(wv) %*% t(sqrt(wv))
-    Sigma <- Sigma / Wmat
+    if (estLambda) {
+      Wmat <- sqrt(wv) %*% t(sqrt(wv))
+      Sigma <- Sigma / Wmat
+    } else {
+      diag(Sigma) <- wv
+    }
     Weighted <- TRUE
   }
   
@@ -697,6 +721,45 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   return(q)
 }
 
+# Function to inspect the likelihood and posterior profiles for lambda:
+.CheckPosterior <- function(y, X, Sigma, dlambda = 0.01) {
+  lamv <- seq(0, 1, dlambda)
+  p <- ncol(X)
+  n <- nrow(X)
+  lamPriorM <- 0.5
+  lamPriorSD <- 0.5
+  
+  diagSig <- diag(Sigma)
+  nlam <- length(lamv)
+  likePost <- matrix(NA, nlam, 3, 
+                     dimnames = list(NULL, c("lambda", "Like", "Post")))
+  likePost[, "lambda"] <- lamv
+  
+  for (ipost in 1:nlam) {
+    lambdaNew <- lamv[ipost]
+    SigNew <- Sigma * lambdaNew
+    diag(SigNew) <- diagSig
+    SigInvNew <- try(.InvMat(SigNew), silent = TRUE)
+    detSigNew <- determinant(SigNew)
+    logDetSigNew <- detSigNew$modulus
+    
+    behat <- solve(t(X) %*% SigInvNew %*% X) %*% t(X) %*% SigInvNew %*% y
+    muNew <- c(X %*% behat)
+    RSS <- t(y - muNew) %*% SigInvNew %*% (y - muNew)
+    sigNew <- c(RSS / (n - p))
+    
+    likeNew <- .multiNorm(x = y, mean = muNew,
+                          invSig = SigInvNew / sigNew,
+                          logDetSig = logDetSigNew + n * log(sigNew))
+    postNew <- likeNew + .dtnorm(x = lambdaNew, mean = lamPriorM, 
+                                 sd = lamPriorSD, lower = 0, upper = 1, 
+                                 log = TRUE)
+    likePost[ipost, c("Like", "Post")] <- c(likeNew, postNew)
+    
+  }
+  return(likePost)
+}
+
 # MCMC for phylogenetic regression:
 .RunMCMC <- function(sim, y, X, Sigma, n, p, niter, burnin, thinning,
                     estLambda = TRUE, updateJumps = TRUE, jumpLam = NULL) {
@@ -717,9 +780,13 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
   lambdaNow <- 0.5
   
   # Variance covariance matrix:
-  SigNow <- Sigma * lambdaNow
-  diagSig <- diag(Sigma)
-  diag(SigNow) <- diagSig
+  if (estLambda) {
+    SigNow <- Sigma * lambdaNow
+    diagSig <- diag(Sigma)
+    diag(SigNow) <- diagSig    
+  } else {
+    SigNow <- Sigma
+  }
   SigInvNow <- .InvMat(SigNow)
   detSigNow <- determinant(SigNow)
   logDetSigNow <- detSigNow$modulus
@@ -782,7 +849,6 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     # 2.a. Sample sigma (Direct sampling; inverse gamma):
     u1 <- s1 + n / 2
     u2 <- s2 + .5 * (t(muNow - y) %*% SigInvNow %*% (muNow - y))
-    # u2 <- s2 + .5 * c(t(muNow - y) %*% (muNow - y))
     sigNow <- 1 / rgamma(1, u1, u2)
 
     # update likelihood and posterior:
@@ -800,7 +866,11 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
       lambdaNew <- .rtnorm(1, lambdaNow, jumpLam, lower = 0, upper = 1)
       SigNew <- Sigma * lambdaNew
       diag(SigNew) <- diagSig
-      SigInvNew <- .InvMat(SigNew)
+      SigInvNew <- try(.InvMat(SigNew), silent = TRUE)
+      if (inherits(SigInvNew, "try-error")) {
+        stop("\nProblems inverting the Sigma matrix.")
+      } 
+      
       detSigNew <- determinant(SigNew)
       logDetSigNew <- detSigNew$modulus
 
@@ -818,7 +888,6 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
       z <- runif(1)
       if (!is.na(r)) {
         if(r > z) {
-          
           lambdaNow <- lambdaNew
           SigNow <- SigNew
           SigInvNow <- SigInvNew
@@ -828,8 +897,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
           if (updateJumps & iter <= niter) {
             updInd[ucnt] <- 1
           }
-        }      
-        
+        }
       }
     }
     
@@ -848,6 +916,7 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
         updRate <- sum(updInd) / updIters
         if (updRate == 0) updRate <- 1e-2
         jumpLam <- jumpLam * updRate / updTarg
+        if (jumpLam > 1) jumpLam <- 1
         jumpVec <- c(jumpVec, jumpLam)
         updInd <- updInd * 0
         ucnt <- 0

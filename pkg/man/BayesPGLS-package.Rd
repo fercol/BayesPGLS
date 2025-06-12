@@ -17,7 +17,7 @@
 	Package: \tab BayesPGLS \cr
 	Type: \tab Package\cr
 	Version: \tab 1.0.2\cr
-	Date: \tab 2024-01-24\cr
+	Date: \tab 2025-04-03\cr
 	License: \tab GNU General Public Licence\cr
 	LazyLoad: \tab yes\cr
   }

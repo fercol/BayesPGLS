@@ -664,7 +664,8 @@ PrepRegrData <- function(data, phylo = NULL, phyloDir = NULL, formula = NULL,
     wv <- 1 / data[, weights]
     if (estLambda) {
       Wmat <- sqrt(wv) %*% t(sqrt(wv))
-      Sigma <- Sigma / Wmat
+      # Sigma <- Sigma / Wmat
+      Sigma <- Sigma * Wmat
     } else {
       diag(Sigma) <- wv
     }

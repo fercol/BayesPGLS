@@ -2,7 +2,7 @@ Package: BayesPGLS
 Type: Package
 Title: Bayesian PGLS
 Version: 1.0.2
-Date: 2024-01-24
+Date: 2025-04-03
 Author: Fernando Colchero
 Maintainer: Fernando Colchero <fernando_colchero@eva.mpg.de>
 Depends: R (>= 3.5.0)
